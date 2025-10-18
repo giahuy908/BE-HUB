@@ -1,0 +1,66 @@
+-- Smooth Full Bright (No Fog + Far Vision)
+local player = game.Players.LocalPlayer
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "SmoothBrightGUI"
+
+-- Nút bật/tắt
+local button = Instance.new("TextButton", gui)
+button.Size = UDim2.new(0, 180, 0, 50)
+button.Position = UDim2.new(0.5, -90, 0.8, 0)
+button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.Font = Enum.Font.GothamBold
+button.Text = "🌙 Full Bright: OFF"
+button.TextScaled = true
+button.Draggable = true
+button.BackgroundTransparency = 0.15
+button.AutoButtonColor = true
+
+-- Lighting
+local lighting = game:GetService("Lighting")
+local fullBrightOn = false
+
+-- Lưu giá trị gốc
+local orig = {
+	Brightness = lighting.Brightness,
+	ClockTime = lighting.ClockTime,
+	Ambient = lighting.Ambient,
+	OutdoorAmbient = lighting.OutdoorAmbient,
+	FogStart = lighting.FogStart,
+	FogEnd = lighting.FogEnd,
+	FogColor = lighting.FogColor,
+	ExposureCompensation = lighting.ExposureCompensation
+}
+
+-- Bật Full Bright dịu mắt
+local function enableSmoothBright()
+	lighting.ClockTime = 12
+	lighting.Brightness = 3 -- sáng rõ nhưng không chói
+	lighting.Ambient = Color3.fromRGB(220, 220, 220) -- ánh sáng nhẹ
+	lighting.OutdoorAmbient = Color3.fromRGB(220, 220, 220)
+	lighting.FogStart = 0
+	lighting.FogEnd = 100000 -- nhìn xa
+	lighting.FogColor = Color3.fromRGB(255, 255, 255)
+	lighting.ExposureCompensation = 0.5 -- vừa sáng, không trắng
+end
+
+-- Tắt về bình thường
+local function disableSmoothBright()
+	for prop, val in pairs(orig) do
+		lighting[prop] = val
+	end
+end
+
+-- Toggle
+button.MouseButton1Click:Connect(function()
+	fullBrightOn = not fullBrightOn
+	if fullBrightOn then
+		enableSmoothBright()
+		button.Text = "☀️ Full Bright: ON"
+		button.BackgroundColor3 = Color3.fromRGB(80, 200, 100)
+	else
+		disableSmoothBright()
+		button.Text = "🌙 Full Bright: OFF"
+		button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	end
+end)
