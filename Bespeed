@@ -1,0 +1,95 @@
+--// BE HUB - Speed Control GUI
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+
+-- Xóa GUI cũ nếu có
+if player.PlayerGui:FindFirstChild("BEHUB_Speed") then
+    player.PlayerGui:FindFirstChild("BEHUB_Speed"):Destroy()
+end
+
+-- GUI
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "BEHUB_Speed"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 220, 0, 130)
+frame.Position = UDim2.new(0.35, 0, 0.4, 0)
+frame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.BackgroundTransparency = 0.15
+frame.ClipsDescendants = true
+frame.Name = "MainFrame"
+
+-- Hiệu ứng bo góc + bóng
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 15)
+local shadow = Instance.new("UIStroke", frame)
+shadow.Color = Color3.fromRGB(80, 0, 200)
+shadow.Thickness = 2.5
+
+-- Tiêu đề BE HUB
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundTransparency = 1
+title.Text = "🌌 BE HUB 🌌"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextColor3 = Color3.fromRGB(180, 100, 255)
+title.TextStrokeTransparency = 0.7
+title.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+
+-- Hiệu ứng đổi màu chữ BE HUB
+task.spawn(function()
+	while true do
+		title.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+		task.wait(0.1)
+	end
+end)
+
+-- TextBox nhập tốc độ
+local textbox = Instance.new("TextBox", frame)
+textbox.Size = UDim2.new(0.8, 0, 0, 35)
+textbox.Position = UDim2.new(0.1, 0, 0.45, 0)
+textbox.PlaceholderText = "Nhập tốc độ (mặc định 16)"
+textbox.Font = Enum.Font.Gotham
+textbox.TextSize = 16
+textbox.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
+textbox.TextColor3 = Color3.fromRGB(255, 255, 255)
+Instance.new("UICorner", textbox).CornerRadius = UDim.new(0, 8)
+
+-- Nút Chỉnh tốc độ
+local button = Instance.new("TextButton", frame)
+button.Size = UDim2.new(0.6, 0, 0, 35)
+button.Position = UDim2.new(0.2, 0, 0.75, 0)
+button.Text = "🚀 Chỉnh tốc độ"
+button.Font = Enum.Font.GothamBold
+button.TextSize = 17
+button.BackgroundColor3 = Color3.fromRGB(70, 40, 120)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+Instance.new("UICorner", button).CornerRadius = UDim.new(0, 10)
+
+-- Hiệu ứng hover
+button.MouseEnter:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(100, 60, 180)
+end)
+button.MouseLeave:Connect(function()
+	button.BackgroundColor3 = Color3.fromRGB(70, 40, 120)
+end)
+
+-- Chức năng chỉnh tốc độ
+button.MouseButton1Click:Connect(function()
+	local speed = tonumber(textbox.Text)
+	if speed and speed > 0 then
+		humanoid.WalkSpeed = speed
+		button.Text = "✅ Đã đặt tốc độ!"
+		task.wait(1)
+		button.Text = "🚀 Chỉnh tốc độ"
+	else
+		button.Text = "⚠️ Sai giá trị!"
+		task.wait(1)
+		button.Text = "🚀 Chỉnh tốc độ"
+	end
+end)
