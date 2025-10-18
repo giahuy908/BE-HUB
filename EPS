@@ -1,0 +1,57 @@
+-- 👁️ ESP Người Chơi (Player ESP)
+-- Script by be hub
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Tạo ESP Box cho nhân vật
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.OutlineColor = Color3.fromRGB(0, 255, 0)
+    highlight.Parent = player.Character
+end
+
+-- Xóa ESP khi người chơi rời
+local function removeESP(player)
+    if player.Character and player.Character:FindFirstChild("ESP_Highlight") then
+        player.Character.ESP_Highlight:Destroy()
+    end
+end
+
+-- Khi người chơi xuất hiện
+local function onCharacterAdded(character)
+    if character:FindFirstChild("ESP_Highlight") then return end
+    task.wait(1)
+    createESP(Players:GetPlayerFromCharacter(character))
+end
+
+-- Gắn ESP cho tất cả người chơi hiện có
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer and player.Character then
+        createESP(player)
+        player.CharacterAdded:Connect(onCharacterAdded)
+    end
+end
+
+-- Khi có người chơi mới vào
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(onCharacterAdded)
+end)
+
+-- Duy trì ESP (auto update)
+RunService.RenderStepped:Connect(function()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("ESP_Highlight")
+            if not highlight then
+                createESP(player)
+            end
+        end
+    end
+end)
