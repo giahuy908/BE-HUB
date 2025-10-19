@@ -1,0 +1,86 @@
+-- 🌌 GOD MODE V3 by Legiahuy (Ultimate Invincibility)
+-- ✅ Chặn sát thương toàn bộ block, kill part, fall damage, lava, spike...
+
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- 🛡️ Thông báo bật God Mode
+StarterGui:SetCore("SendNotification", {
+	Title = "💀 GOD MODE: Active";
+	Text = "created by be hub!";
+	Duration = 6;
+})
+
+local function makeInvincible()
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local hum = char:FindFirstChildOfClass("Humanoid")
+
+	if hum then
+		-- Ẩn thanh máu và tên
+		hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+		hum.NameDisplayDistance = 0
+	end
+
+	-- ForceField bảo vệ
+	if not char:FindFirstChildOfClass("ForceField") then
+		Instance.new("ForceField", char)
+	end
+
+	-- Liên tục hồi máu đầy
+	RunService.RenderStepped:Connect(function()
+		if hum and hum.Health > 0 then
+			hum.Health = hum.MaxHealth
+		end
+	end)
+
+	-- Không bị knock hay ngồi
+	hum.StateChanged:Connect(function(_, state)
+		if state == Enum.HumanoidStateType.Freefall then
+			hum.PlatformStand = false
+		end
+	end)
+
+	-- 🧱 Chặn mọi sát thương từ block (TouchInterest)
+	local function disableTouch(part)
+		if part:IsA("BasePart") then
+			part.CanTouch = false
+		end
+	end
+
+	for _, obj in pairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			disableTouch(obj)
+		end
+	end
+
+	workspace.DescendantAdded:Connect(function(obj)
+		if obj:IsA("BasePart") then
+			disableTouch(obj)
+		end
+	end)
+
+	-- 🔄 Tự kiểm tra mỗi giây để bảo đảm vẫn bất tử
+	task.spawn(function()
+		while task.wait(1) do
+			if hum and hum.Health < hum.MaxHealth then
+				hum.Health = hum.MaxHealth
+			end
+			for _, part in pairs(workspace:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanTouch = false
+				end
+			end
+		end
+	end)
+end
+
+-- 🔁 Tự bật lại khi chết
+LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(1)
+	makeInvincible()
+end)
+
+-- 🚀 Kích hoạt
+makeInvincible()
