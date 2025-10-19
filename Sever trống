@@ -1,0 +1,32 @@
+--// 🌌 BE HUB - Join Server Trống
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local PlaceId = game.PlaceId
+
+local function GetEmptyServer()
+	local cursor = ""
+	repeat
+		local response = game:HttpGet(
+			"https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Asc&limit=100&cursor="..cursor
+		)
+		local data = HttpService:JSONDecode(response)
+		for _, server in ipairs(data.data) do
+			if server.playing == 0 then
+				return server.id
+			end
+		end
+		cursor = data.nextPageCursor or ""
+	until cursor == "" or not cursor
+end
+
+local serverId = GetEmptyServer()
+if serverId then
+	game:GetService("StarterGui"):SetCore("SendNotification", {
+		Title = "🌌 BE HUB";
+		Text = "Đang vào server trống nhất...";
+		Duration = 5;
+	})
+	TeleportService:TeleportToPlaceInstance(PlaceId, serverId, game.Players.LocalPlayer)
+else
+	warn("Không tìm thấy server trống.")
+end
