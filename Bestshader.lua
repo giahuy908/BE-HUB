@@ -29,7 +29,7 @@ end
 
 -- 🌫️ Atmosphere (sương mù + ánh sáng môi trường)
 local atmosphere = Instance.new("Atmosphere")
-atmosphere.Density = 0.35
+atmosphere.Density = 0.50
 atmosphere.Offset = 0.25
 atmosphere.Color = Color3.fromRGB(190, 200, 210)
 atmosphere.Decay = Color3.fromRGB(85, 95, 120)
