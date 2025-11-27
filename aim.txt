@@ -1,140 +1,249 @@
---// Rayfield
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+--// LOAD RAYFIELD
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
---// Services
+--// SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
-local LocalPlayer = Players.LocalPlayer
+local LP = Players.LocalPlayer
 
---// Vars
-local AimEnabled = false
-local FOVRadius = 150
-local Smooth = 0.45
-local AimPart = "Head"
-local ShowLine = true
-local TeamCheck = false
+--// VARIABLES
+local AimEnabled=false
+local FOVRadius=150
+local Smooth=0.45
+local AimPart="Head"
+local ShowLine=true
+local TeamCheck=false
+local TargetMode="Distance"
+local AntiShake=true
+local LockRadius=12
+local HoldTargetTime=0.18
+local lastTarget=nil
+local lastSwitch=tick()
+local WallCheck=false
 
--- Pick Mode: "Screen" (gần tâm) | "Distance" (gần nhất khoảng cách)
-local TargetMode = "Distance"
+-- Rainbow
+local RainbowLine=false
+local RainbowFOV=false
+local RainbowESP=false
+local hue=0
 
--- Anti-giật
-local AntiShake = true
-local LockRadius = 12
-local HoldTargetTime = 0.18
-local lastTarget = nil
-local lastSwitch = tick()
+-- Hitbox
+local HitboxEnabled=false
+local HitboxDistance=30
+
+-- ESP Team
+local ESPTeam=false
+
+-- Misc
+local Spin=false
+local SpinSpeed=10
+local Speed99=false
+
+-- ESP STORAGE
+local ESPFolder=Instance.new("Folder",workspace)
+ESPFolder.Name="ESP_RAINBOW"
 
 --// UI
-local Window = Rayfield:CreateWindow({
-   Name = "Aim Mobile",
-   LoadingTitle = "Loading...",
-   LoadingSubtitle = "Pvp tất cả game",
-   ConfigurationSaving = {Enabled = false}
-})
-local Tab = Window:CreateTab("Aim", 4483362458)
-local VisTab = Window:CreateTab("Visual", 4483362458)
-
-Tab:CreateToggle({Name="Enable Aim",CurrentValue=false,Callback=function(v) AimEnabled=v end})
-Tab:CreateDropdown({Name="Aim Part",Options={"Head","HumanoidRootPart"},CurrentOption="Head",Callback=function(o) AimPart=o end})
-Tab:CreateSlider({Name="Smooth(càng cao khoá càng chặt)",Range={1,100},Increment=1,Suffix="%",CurrentValue=45,Callback=function(v) Smooth=v/100 end})
-Tab:CreateSlider({Name="FOV Radius",Range={50,400},Increment=5,CurrentValue=150,Callback=function(v) FOVRadius=v end})
-Tab:CreateToggle({Name="Team Check",CurrentValue=false,Callback=function(v) TeamCheck=v end})
-
--- Chọn chế độ mục tiêu
-Tab:CreateDropdown({
-   Name = "Target Mode",
-   Options = {"Distance","Screen"},
-   CurrentOption = "Distance",
-   Callback = function(o) TargetMode = o end,
+local Window=Rayfield:CreateWindow({
+   Name="AIMBOT",
+   LoadingTitle="Loading...",
+   LoadingSubtitle="Mobile Script",
+   ConfigurationSaving={Enabled=false}
 })
 
--- Anti giật
-Tab:CreateToggle({Name="Anti Shake",CurrentValue=true,Callback=function(v) AntiShake=v end})
-Tab:CreateSlider({Name="Lock Radius",Range={5,40},Increment=1,CurrentValue=12,Callback=function(v) LockRadius=v end})
-Tab:CreateSlider({Name="Hold Time (sec)",Range={0,1},Increment=0.05,CurrentValue=0.18,Callback=function(v) HoldTargetTime=v end})
+local AimTab=Window:CreateTab("Aim",4483362458)
+local VisTab=Window:CreateTab("Visual",4483362458)
+local EspTab=Window:CreateTab("ESP",4483362458)
+local MiscTab=Window:CreateTab("Misc",4483362458)
 
-VisTab:CreateToggle({Name="Show Line",CurrentValue=true,Callback=function(v) ShowLine=v end})
+-- AIM TAB
+AimTab:CreateToggle({Name="Enable Aim",CurrentValue=false,Callback=function(v)AimEnabled=v end})
+AimTab:CreateDropdown({Name="Aim Part",Options={"Head","HumanoidRootPart"},CurrentOption="Head",Callback=function(v)AimPart=v end})
+AimTab:CreateToggle({Name="Team Check",CurrentValue=false,Callback=function(v)TeamCheck=v end})
+AimTab:CreateToggle({Name="Wall Check",CurrentValue=false,Callback=function(v)WallCheck=v end})
+AimTab:CreateDropdown({Name="Target Mode",Options={"Distance","Screen"},CurrentOption="Distance",Callback=function(v)TargetMode=v end})
+AimTab:CreateSlider({Name="Smooth",Range={1,100},Increment=1,CurrentValue=45,Callback=function(v)Smooth=v/100 end})
+AimTab:CreateSlider({Name="FOV Radius",Range={50,400},Increment=5,CurrentValue=150,Callback=function(v)FOVRadius=v end})
+AimTab:CreateToggle({Name="Anti Shake",CurrentValue=true,Callback=function(v)AntiShake=v end})
+AimTab:CreateSlider({Name="Lock Radius",Range={5,40},Increment=1,CurrentValue=12,Callback=function(v)LockRadius=v end})
+AimTab:CreateSlider({Name="Hold Time",Range={0,1},Increment=0.05,CurrentValue=0.18,Callback=function(v)HoldTargetTime=v end})
 
---// Drawings
-local circle = Drawing.new("Circle")
-circle.Color = Color3.fromRGB(0,255,150)
-circle.Thickness = 2
-circle.NumSides = 100
-circle.Filled = false
+AimTab:CreateToggle({Name="Hitbox Distance",CurrentValue=false,Callback=function(v)HitboxEnabled=v end})
+AimTab:CreateSlider({Name="Hitbox Range",Range={10,100},Increment=5,CurrentValue=30,Callback=function(v)HitboxDistance=v end})
 
-local line = Drawing.new("Line")
-line.Color = Color3.fromRGB(255,255,255)
-line.Thickness = 1.5
+-- VISUAL
+VisTab:CreateToggle({Name="Show Line",CurrentValue=true,Callback=function(v)ShowLine=v end})
+VisTab:CreateToggle({Name="Rainbow Line",CurrentValue=false,Callback=function(v)RainbowLine=v end})
+VisTab:CreateToggle({Name="Rainbow FOV",CurrentValue=false,Callback=function(v)RainbowFOV=v end})
 
---// Target Finder
-local function GetClosest()
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    local best, bestVal = nil, (TargetMode=="Screen" and FOVRadius or math.huge)
+-- ESP
+EspTab:CreateToggle({Name="Rainbow ESP",CurrentValue=false,Callback=function(v)RainbowESP=v end})
+EspTab:CreateToggle({Name="ESP Team Check",CurrentValue=false,Callback=function(v)ESPTeam=v end})
+
+-- MISC
+MiscTab:CreateButton({
+Name="Fix Lag",
+Callback=function()
+    for _,v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ParticleEmitter") or v:IsA("Beam") or v:IsA("Trail") then
+            v.Enabled=false
+        end
+    end
+end})
+
+MiscTab:CreateButton({
+Name="Boost FPS",
+Callback=function()
+    settings().Rendering.QualityLevel=Enum.QualityLevel.Level01
+    for _,v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") then
+            v.Material=Enum.Material.Plastic
+            v.Reflectance=0
+        end
+    end
+end})
+
+MiscTab:CreateToggle({Name="Spin",CurrentValue=false,Callback=function(v)Spin=v end})
+MiscTab:CreateSlider({Name="Spin Speed",Range={1,50},Increment=1,CurrentValue=10,Callback=function(v)SpinSpeed=v end})
+MiscTab:CreateToggle({Name="Speed 99",CurrentValue=false,Callback=function(v)Speed99=v end})
+
+-- DRAW
+local circle=Drawing.new("Circle")
+circle.NumSides=100
+circle.Thickness=2
+circle.Filled=false
+
+local line=Drawing.new("Line")
+line.Thickness=1.5
+
+-- WALL CHECK
+local function canSee(part)
+    if not WallCheck then return true end
+    local params=RaycastParams.new()
+    params.FilterDescendantsInstances={LP.Character}
+    params.FilterType=Enum.RaycastFilterType.Blacklist
+    local ray=workspace:Raycast(Camera.CFrame.Position,(part.Position-Camera.CFrame.Position),params)
+    return not ray or ray.Instance:IsDescendantOf(part.Parent)
+end
+
+-- GET TARGET
+local function GetTarget()
+    local center=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+    local best,score=nil,(TargetMode=="Screen" and FOVRadius or math.huge)
 
     for _,p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(AimPart) then
-            if TeamCheck and LocalPlayer.Team == p.Team then continue end
+        if p~=LP and p.Character and p.Character:FindFirstChild(AimPart) then
+            if TeamCheck and LP.Team==p.Team then continue end
+            local part=p.Character[AimPart]
+            if not canSee(part) then continue end
+            local pos,vis=Camera:WorldToViewportPoint(part.Position)
+            local dist=(part.Position-Camera.CFrame.Position).Magnitude
 
-            local part = p.Character[AimPart]
-            local worldDist = (part.Position - Camera.CFrame.Position).Magnitude
-            local pos, vis = Camera:WorldToViewportPoint(part.Position)
-
-            if TargetMode == "Screen" then
+            if TargetMode=="Screen" then
                 if vis then
-                    local screenDist = (Vector2.new(pos.X,pos.Y) - center).Magnitude
-                    if screenDist < bestVal then bestVal=screenDist; best=p end
+                    local s=(Vector2.new(pos.X,pos.Y)-center).Magnitude
+                    if s<score then score=s best=p end
                 end
-            else -- Distance
-                if worldDist < bestVal then bestVal=worldDist; best=p end
+            else
+                if dist<score then score=dist best=p end
             end
         end
     end
     return best
 end
 
---// Anti-shake giữ target
-local function StableTarget(newTarget)
-    if not AntiShake then lastTarget=newTarget; return newTarget end
-
+-- ANTI SHAKE
+local function Stable(n)
+    if not AntiShake then lastTarget=n return n end
     if lastTarget and lastTarget.Character and lastTarget.Character:FindFirstChild(AimPart) then
-        local part = lastTarget.Character[AimPart]
-        local pos, vis = Camera:WorldToViewportPoint(part.Position)
+        local part=lastTarget.Character[AimPart]
+        local pos,vis=Camera:WorldToViewportPoint(part.Position)
         if vis then
-            local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-            local dist = (Vector2.new(pos.X,pos.Y)-center).Magnitude
-            if dist <= LockRadius and (tick()-lastSwitch) <= HoldTargetTime then
+            local center=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+            if (Vector2.new(pos.X,pos.Y)-center).Magnitude<=LockRadius and tick()-lastSwitch<=HoldTargetTime then
                 return lastTarget
             end
         end
     end
-    lastTarget=newTarget; lastSwitch=tick()
-    return newTarget
+    lastTarget=n
+    lastSwitch=tick()
+    return n
 end
 
---// Loop
-RunService.RenderStepped:Connect(function()
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
-    circle.Visible = AimEnabled
-    circle.Position = center
-    circle.Radius = FOVRadius
+-- ESP
+local function UpdateESP(color)
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p~=LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            if ESPTeam and LP.Team==p.Team then
+                if ESPFolder:FindFirstChild(p.Name) then ESPFolder[p.Name]:Destroy() end
+                continue
+            end
+            if not ESPFolder:FindFirstChild(p.Name) then
+                local b=Instance.new("BoxHandleAdornment",ESPFolder)
+                b.Name=p.Name
+                b.Adornee=p.Character
+                b.Size=p.Character:GetExtentsSize()
+                b.AlwaysOnTop=true
+                b.Transparency=0.4
+            end
+        end
+    end
+    for _,v in pairs(ESPFolder:GetChildren()) do
+        v.Color3=color
+    end
+end
 
-    local raw = AimEnabled and GetClosest()
-    local target = StableTarget(raw)
+-- LOOP
+RunService.RenderStepped:Connect(function()
+    hue=(hue+0.01)%1
+    local color=Color3.fromHSV(hue,1,1)
+
+    local center=Vector2.new(Camera.ViewportSize.X/2,Camera.ViewportSize.Y/2)
+    circle.Visible=AimEnabled
+    circle.Radius=FOVRadius
+    circle.Position=center
+    circle.Color=RainbowFOV and color or Color3.fromRGB(0,255,150)
+    line.Color=RainbowLine and color or Color3.new(1,1,1)
+
+    local raw=AimEnabled and GetTarget()
+    local target=Stable(raw)
 
     if target and target.Character and target.Character:FindFirstChild(AimPart) then
-        local part = target.Character[AimPart]
-        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Smooth)
-
-        local pos = Camera:WorldToViewportPoint(part.Position)
+        local part=target.Character[AimPart]
+        Camera.CFrame=Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position,part.Position),Smooth)
+        local pos=Camera:WorldToViewportPoint(part.Position)
         if ShowLine then
-            line.Visible = true
-            line.From = center
-            line.To = Vector2.new(pos.X,pos.Y)
+            line.Visible=true
+            line.From=center
+            line.To=Vector2.new(pos.X,pos.Y)
         else
-            line.Visible = false
+            line.Visible=false
         end
     else
-        line.Visible = false
+        line.Visible=false
+    end
+
+    if HitboxEnabled and LP.Character then
+        for _,p in pairs(Players:GetPlayers()) do
+            if p~=LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local d=(p.Character.HumanoidRootPart.Position-LP.Character.HumanoidRootPart.Position).Magnitude
+                if d<=HitboxDistance then
+                    p.Character.HumanoidRootPart.Size=Vector3.new(8,8,8)
+                end
+            end
+        end
+    end
+
+    if RainbowESP then UpdateESP(color) else ESPFolder:ClearAllChildren() end
+
+    -- SPIN
+    if Spin and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        LP.Character.HumanoidRootPart.CFrame*=CFrame.Angles(0,math.rad(SpinSpeed),0)
+    end
+
+    -- SPEED
+    if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+        LP.Character:FindFirstChildOfClass("Humanoid").WalkSpeed=Speed99 and 99 or 16
     end
 end)
