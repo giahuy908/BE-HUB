@@ -1,0 +1,140 @@
+--// Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+--// Vars
+local AimEnabled = false
+local FOVRadius = 150
+local Smooth = 0.45
+local AimPart = "Head"
+local ShowLine = true
+local TeamCheck = false
+
+-- Pick Mode: "Screen" (gần tâm) | "Distance" (gần nhất khoảng cách)
+local TargetMode = "Distance"
+
+-- Anti-giật
+local AntiShake = true
+local LockRadius = 12
+local HoldTargetTime = 0.18
+local lastTarget = nil
+local lastSwitch = tick()
+
+--// UI
+local Window = Rayfield:CreateWindow({
+   Name = "Aim Mobile",
+   LoadingTitle = "Loading...",
+   LoadingSubtitle = "Pvp tất cả game",
+   ConfigurationSaving = {Enabled = false}
+})
+local Tab = Window:CreateTab("Aim", 4483362458)
+local VisTab = Window:CreateTab("Visual", 4483362458)
+
+Tab:CreateToggle({Name="Enable Aim",CurrentValue=false,Callback=function(v) AimEnabled=v end})
+Tab:CreateDropdown({Name="Aim Part",Options={"Head","HumanoidRootPart"},CurrentOption="Head",Callback=function(o) AimPart=o end})
+Tab:CreateSlider({Name="Smooth(càng cao khoá càng chặt)",Range={1,100},Increment=1,Suffix="%",CurrentValue=45,Callback=function(v) Smooth=v/100 end})
+Tab:CreateSlider({Name="FOV Radius",Range={50,400},Increment=5,CurrentValue=150,Callback=function(v) FOVRadius=v end})
+Tab:CreateToggle({Name="Team Check",CurrentValue=false,Callback=function(v) TeamCheck=v end})
+
+-- Chọn chế độ mục tiêu
+Tab:CreateDropdown({
+   Name = "Target Mode",
+   Options = {"Distance","Screen"},
+   CurrentOption = "Distance",
+   Callback = function(o) TargetMode = o end,
+})
+
+-- Anti giật
+Tab:CreateToggle({Name="Anti Shake",CurrentValue=true,Callback=function(v) AntiShake=v end})
+Tab:CreateSlider({Name="Lock Radius",Range={5,40},Increment=1,CurrentValue=12,Callback=function(v) LockRadius=v end})
+Tab:CreateSlider({Name="Hold Time (sec)",Range={0,1},Increment=0.05,CurrentValue=0.18,Callback=function(v) HoldTargetTime=v end})
+
+VisTab:CreateToggle({Name="Show Line",CurrentValue=true,Callback=function(v) ShowLine=v end})
+
+--// Drawings
+local circle = Drawing.new("Circle")
+circle.Color = Color3.fromRGB(0,255,150)
+circle.Thickness = 2
+circle.NumSides = 100
+circle.Filled = false
+
+local line = Drawing.new("Line")
+line.Color = Color3.fromRGB(255,255,255)
+line.Thickness = 1.5
+
+--// Target Finder
+local function GetClosest()
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    local best, bestVal = nil, (TargetMode=="Screen" and FOVRadius or math.huge)
+
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(AimPart) then
+            if TeamCheck and LocalPlayer.Team == p.Team then continue end
+
+            local part = p.Character[AimPart]
+            local worldDist = (part.Position - Camera.CFrame.Position).Magnitude
+            local pos, vis = Camera:WorldToViewportPoint(part.Position)
+
+            if TargetMode == "Screen" then
+                if vis then
+                    local screenDist = (Vector2.new(pos.X,pos.Y) - center).Magnitude
+                    if screenDist < bestVal then bestVal=screenDist; best=p end
+                end
+            else -- Distance
+                if worldDist < bestVal then bestVal=worldDist; best=p end
+            end
+        end
+    end
+    return best
+end
+
+--// Anti-shake giữ target
+local function StableTarget(newTarget)
+    if not AntiShake then lastTarget=newTarget; return newTarget end
+
+    if lastTarget and lastTarget.Character and lastTarget.Character:FindFirstChild(AimPart) then
+        local part = lastTarget.Character[AimPart]
+        local pos, vis = Camera:WorldToViewportPoint(part.Position)
+        if vis then
+            local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+            local dist = (Vector2.new(pos.X,pos.Y)-center).Magnitude
+            if dist <= LockRadius and (tick()-lastSwitch) <= HoldTargetTime then
+                return lastTarget
+            end
+        end
+    end
+    lastTarget=newTarget; lastSwitch=tick()
+    return newTarget
+end
+
+--// Loop
+RunService.RenderStepped:Connect(function()
+    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    circle.Visible = AimEnabled
+    circle.Position = center
+    circle.Radius = FOVRadius
+
+    local raw = AimEnabled and GetClosest()
+    local target = StableTarget(raw)
+
+    if target and target.Character and target.Character:FindFirstChild(AimPart) then
+        local part = target.Character[AimPart]
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Smooth)
+
+        local pos = Camera:WorldToViewportPoint(part.Position)
+        if ShowLine then
+            line.Visible = true
+            line.From = center
+            line.To = Vector2.new(pos.X,pos.Y)
+        else
+            line.Visible = false
+        end
+    else
+        line.Visible = false
+    end
+end)
